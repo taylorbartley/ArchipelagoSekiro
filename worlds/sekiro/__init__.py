@@ -41,6 +41,14 @@ from .Options import SekiroOptions, option_groups
 from Options import OptionError
 
 
+VALID_CLASSIFICATIONS: dict[str, ItemClassification] = {
+    "progression": ItemClassification.progression,
+    "useful": ItemClassification.useful,
+    "filler": ItemClassification.filler,
+    "trap": ItemClassification.trap,
+}
+
+
 class SekiroWeb(WebWorld):
     bug_report_page = "replace with Bug Report page"
     theme = "dirt"
