@@ -110,8 +110,13 @@ class SekiroItem(Item):
             self,
             player: int,
             data: SekiroItemData,
-            classification = None):
-        super().__init__(data.name, classification or data.classification, data.ap_code, player)
+            classification: ItemClassification | None = None):
+        super().__init__(
+            data.name,
+            data.classification if classification is None else classification,
+            data.ap_code,
+            player,
+        )
         self.data = data
 
     @staticmethod
