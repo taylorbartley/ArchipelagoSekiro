@@ -214,6 +214,34 @@ class Carpsanity(Toggle):
     """Add Treasure Carp drops into the item pool"""
     display_name = "Carpsanity"
 
+
+class ItemClassificationOverrides(OptionDict):
+    """Override the Archipelago classification of individual items.
+
+    Keys are item names (quote any name containing `:`). Values are one of
+    `progression`, `useful`, `filler` or `trap`. Item group names such as `Skills` are not
+    accepted because a group mixes progression and filler items; list the individual items
+    instead.
+
+    Classification controls where an item may be placed: `progression` and `useful` items
+    are kept out of missable/excluded locations when those are set to forbid useful items,
+    while `filler` items may appear anywhere. Changing an item the world's logic requires to
+    `filler` or `useful` can produce an unbeatable seed, and reclassifying too many filler
+    items can leave too few of them to fill excluded locations.
+
+    For example, to keep the two Breath skills out of missable locations:
+
+    .. code-block:: YAML
+
+      item_classification_overrides:
+        "Breath of Life: Shadow": useful
+        "Breath of Life: Light": useful
+    """
+    display_name = "Item Classification Overrides"
+    supports_weighting = False
+    default = {}
+
+
 class SekiroExcludeLocations(ExcludeLocations):
     """Prevent these locations from having an important item."""
     default = frozenset({"Hidden", "Headless"})
@@ -288,6 +316,7 @@ class SekiroOptions(PerGameCommonOptions):
 
     # Item & Location
     carpsanity: Carpsanity
+    item_classification_overrides: ItemClassificationOverrides
     exclude_locations: SekiroExcludeLocations
     excluded_location_behavior: ExcludedLocationBehaviorOption
     missable_location_behavior: MissableLocationBehaviorOption
@@ -312,6 +341,7 @@ option_groups = [
     ]),
     OptionGroup("Item & Location Options", [
         Carpsanity,
+        ItemClassificationOverrides,
         SekiroExcludeLocations,
         ExcludedLocationBehaviorOption,
         MissableLocationBehaviorOption,
