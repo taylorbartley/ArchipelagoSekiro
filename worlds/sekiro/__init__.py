@@ -105,6 +105,7 @@ class SekiroWorld(World):
     def __init__(self, multiworld: MultiWorld, player: int):
         super().__init__(multiworld, player)
         self.all_excluded_locations = set()
+        self.classification_overrides: dict[str, ItemClassification] = {}
 
     def generate_early(self) -> None:
         # UT yamlless support
@@ -128,6 +129,44 @@ class SekiroWorld(World):
             raise OptionError(
                 f"Player {self.player_name} has enabled skills as items but not randomized skill trees. "
                 f"Please fix your options by either enabling both or disabling the skills as item pickups.")
+
+        self.classification_overrides = {}
+        for item_name, classification_name in self.options.item_classification_overrides.value.items():
+            if item_name in item_name_groups:
+                raise OptionError(
+                    f"Player {self.player_name} used the item group {item_name!r} in "
+                    f"item_classification_overrides, which only accepts individual item names. "
+                    f"List the items in that group instead."
+                )
+            if item_name not in item_dictionary:
+                raise OptionError(
+                    f"Player {self.player_name} has an unknown item {item_name!r} in "
+                    f"item_classification_overrides."
+                )
+            classification = (
+                VALID_CLASSIFICATIONS.get(classification_name.strip().lower())
+                if isinstance(classification_name, str) else None
+            )
+            if classification is None:
+                raise OptionError(
+                    f"Player {self.player_name} has an invalid classification "
+                    f"{classification_name!r} for {item_name!r} in item_classification_overrides. "
+                    f"Valid classifications are: {', '.join(VALID_CLASSIFICATIONS)}."
+                )
+            self.classification_overrides[item_name] = classification
+        for item_name, classification in self.classification_overrides.items():
+            default = item_dictionary[item_name].classification
+            if default & ItemClassification.progression and not classification & ItemClassification.progression:
+                warning(
+                    f"Player {self.player_name} reclassified the progression item {item_name!r} as "
+                    f"{classification.name}, so it may be placed in excluded or missable locations "
+                    f"and make the seed unbeatable."
+                )
+        if not self._filler_names():
+            raise OptionError(
+                f"Player {self.player_name} has reclassified every filler item as progression or "
+                f"useful, leaving no filler items available."
+            )
 
     def create_regions(self) -> None:
         # Create Game Regions
@@ -331,11 +370,11 @@ class SekiroWorld(World):
         # Make skills mandatory as injection.
         injectable_mandatory = [
             item for item in all_injectable_items
-            if item.classification & ItemClassification.progression or item.category == 1
+            if self._classification_for(item) & ItemClassification.progression or item.category == 1
         ]
         injectable_optional = [
             item for item in all_injectable_items
-            if item.classification != ItemClassification.progression or not item.category == 1
+            if self._classification_for(item) != ItemClassification.progression or not item.category == 1
         ]
         number_to_inject = min(num_required_extra_items, len(all_injectable_items))
         items = (
@@ -377,9 +416,15 @@ class SekiroWorld(World):
 
     def create_item(self, item: str | SekiroItemData) -> SekiroItem:
         data = item if isinstance(item, SekiroItemData) else item_dictionary[item]
-        classification = None
+        return SekiroItem(self.player, data, classification=self._classification_for(data))
 
-        return SekiroItem(self.player, data, classification=classification)
+    def _classification_for(self, data: SekiroItemData) -> ItemClassification:
+        """The item's classification after applying the player's overrides."""
+        if data.name in self.classification_overrides:
+            return self.classification_overrides[data.name]
+        if data.base_name is not None:
+            return self.classification_overrides.get(data.base_name, data.classification)
+        return data.classification
 
     def _fill_local_items(self) -> None:
         """Removes certain items from the item pool and manually places them in the local world.
@@ -470,7 +515,16 @@ class SekiroWorld(World):
                 return
 
     def get_filler_item_name(self) -> str:
-        return self.random.choice(filler_item_names)
+        return self.random.choice(self._filler_names())
+
+    def _filler_names(self) -> list[str]:
+        """Filler candidates whose classification was not overridden to advancement."""
+        return [
+            name for name in filler_item_names
+            if not self._classification_for(item_dictionary[name]) & (
+                ItemClassification.progression | ItemClassification.useful
+            )
+        ]
 
     def set_rules(self) -> None:
         randomized_items = {item.name for item in self.local_itempool}
