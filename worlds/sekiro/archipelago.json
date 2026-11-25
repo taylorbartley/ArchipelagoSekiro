@@ -1,6 +1,1 @@
-{
-    "game": "Sekiro: Shadows Die Twice",
-    "minimum_ap_version": "0.6.7",
-    "world_version": "1.0.1",
-  	"authors": ["Yenix"]
-}
+{"game": "Sekiro: Shadows Die Twice", "minimum_ap_version": "0.6.7", "world_version": "1.0.1", "authors": ["Yenix"], "compatible_version": 7, "version": 7}
